@@ -1464,3 +1464,557 @@ void mymv(char *order,file_st *myfs){
     }
 }
 //파일의 이름을 바꾸거나 경로를 바꿈 수정 시간도 바뀜
+void myrmdir(char *order,file_st *myfs){
+  char route[1000]="",fname[5]="",*name;
+  int temp,rn,*dnum,wstation;
+  sscanf(order,"%*s %s",route);
+  temp=find_rinode(route,myfs);
+  if(temp==-1){
+    printf("error : no file\n");
+    return ;
+  }
+  if(myfs->inode[temp].type=='-'){
+    printf("error : %s is regular file\n",route);
+    return ;
+  }
+  dnum=find_dnum(temp,myfs);
+  rn=count_dnum(temp,myfs);
+  if(myfs->data[dnum[0]].dir.fcount!=0){
+    printf("error : %s is not empty\n",route);
+    return ;
+  }
+  for(int i=0;i<rn;i++){
+    reset_db(dnum[i],myfs);
+    bit_unmark(myfs->data_ch,dnum[i]);
+  }
+  reset_in(temp,myfs);
+  bit_unmark(myfs->inode_ch,temp);
+  name=change_route(route);
+  if(name==NULL) {name=route; wstation=now;}
+  else if(name==(char *)1) {name=route+1; wstation=0;}
+  else  {wstation=find_rinode(route,myfs);}
+  strncpy(fname,name,4);
+  remove_in_file(myfs,fname,wstation);
+  free(dnum);
+}
+//폴더 삭제, 폴더에 파일이 있는 경우 error
+
+void myrm(char *order,file_st *myfs){
+  char route[1000]="",fname[5]="",*name;
+  int temp,rn,*dnum,wstation;
+  sscanf(order,"%*s %s",route);
+  temp=find_rinode(route,myfs);
+  if(temp==-1){
+    printf("error : no file\n");
+    return ;
+  }
+  if(myfs->inode[temp].type=='d'){
+    printf("error : %s is directory file\n",route);
+    return ;
+  }
+  dnum=find_dnum(temp,myfs);
+  rn=count_dnum(temp,myfs);
+  for(int i=0;i<rn;i++){
+    reset_db(dnum[i],myfs);
+    bit_unmark(myfs->data_ch,dnum[i]);
+  }
+  if(rn>1){
+    reset_db(myfs->inode[temp].in_b,myfs);
+    bit_unmark(myfs->data_ch,myfs->inode[temp].in_b);
+  }
+  reset_in(temp,myfs);
+  bit_unmark(myfs->inode_ch,temp);
+  name=change_route(route);
+  if(name==NULL) {name=route; wstation=now;}
+  else if(name==(char *)1) {name=route+1; wstation=0;}
+  else  {wstation=find_rinode(route,myfs);}
+  strncpy(fname,name,4);
+  remove_in_file(myfs,fname,wstation);
+  free(dnum);
+}
+//regular 파일만 삭제 가능
+
+void reset_db(int num,file_st *myfs){
+  for(int i=0;i<128;i++)
+    myfs->data[num].reg.save[i]=0;
+}
+//데이타 블록 초기화
+
+
+void reset_in(int num,file_st *myfs){
+  struct tm temp={0};
+  myfs->inode[num].type=0;
+  myfs->inode[num].c_time=temp;
+  myfs->inode[num].size=0;
+  myfs->inode[num].dir_b=0;
+  myfs->inode[num].in_b=0;
+  myfs->inode[num].indb_b=0;
+}
+//inode  초기화
+
+char *change_route(char *route){
+  char dname[5]="",temp[1000]="",*name;
+  if(route[0]=='/'){
+   int count=1,i=1;
+     while(1)
+     {
+        if(route[2]==0)
+        {
+           count--;
+           break;
+        }
+        if(route[i]=='/' && route[i+1]!=0)
+           count++;
+        else if(route[i]=='/'&&route[i+1]==0)
+           break;
+        if(route[i] == 0)
+           break;
+        i++;
+     }
+     if(count!=1){
+      for(int i=strlen(route)-1,j=0;;i--,j++){
+        if(route[i]=='/')
+          break;
+        else{
+          temp[j]=route[i];
+          route[i]=0;
+        }
+      }
+      for(int i=0;i<4;i++)
+        dname[i]=temp[strlen(temp)-1-i];
+      }
+      else{
+         strncpy(dname,route+1,4);
+         return (char *)1;  //  /경로에서 카운트 하나일때
+      }
+  }
+  else{
+    int count=0;
+    if(route[strlen(route)-1]=='/')
+     route[strlen(route)-1]=0;
+    for(int i=0;i<=(int)strlen(route);i++){
+      if(route[i]=='/'||route[i]==0){
+        count++;
+      }
+    }
+    if(count!=1){
+     for(int i=strlen(route)-1,j=0;;i--,j++){
+       if(route[i]=='/')
+         break;
+       else{
+         temp[j]=route[i];
+         route[i]=0;
+       }
+     }
+     for(int i=0;i<4;i++)
+       dname[i]=temp[strlen(temp)-1-i];
+    }
+    else {
+       strncpy(dname,route,4);
+       return NULL; // route가 파일이름 그자체
+    }
+  }
+  name=(char *)calloc(strlen(dname)+1,sizeof(char));
+  strncpy(name,dname,strlen(dname)+1);
+  return name;
+}
+//return 값은 파일이름 null일경우 route가 파일이름 그자체 (char *)1 일경우 /파일이름
+
+int find_rinode(char *route,file_st *myfs){
+  char backup[1000],(*name_list)[5],*temp;
+  int i=1,fin,rn,*dnum;
+  strcpy(backup,route);
+  if(route[0] == '/'){
+    int count=1;
+     while(1)
+       {
+          if(route[2]==0)
+          {
+             count--;
+             break;
+          }
+          if(route[i]=='/' && route[i+1]!=0)
+             count++;
+          else if(route[i]=='/'&&route[i+1]==0)
+             break;
+          if(route[i] == 0)
+             break;
+          i++;
+       }
+       if(count==0)
+        return 0;
+       name_list=(char (*)[5])calloc(count*5,sizeof(char));
+       temp=strtok(backup,"/");
+       name_list[0][0]=temp[0];
+       name_list[0][1]=temp[1];
+       name_list[0][2]=temp[2];
+       name_list[0][3]=temp[3];
+       for(int i=1;i<count;i++){
+         temp=strtok(NULL,"/");
+         name_list[i][0]=temp[0];
+         name_list[i][1]=temp[1];
+         name_list[i][2]=temp[2];
+         name_list[i][3]=temp[3];
+       }
+       fin=0;
+       dnum=find_dnum(fin,myfs);
+       rn=count_dnum(fin,myfs);
+       if(strncmp(name_list[0],"..",2)==0)
+         fin=myfs->data[dnum[0]].dir.parent;
+       else if(strncmp(name_list[0],".",2)==0)
+         fin=myfs->data[dnum[0]].dir.current;
+       else{
+       for(int i=0;i<rn;i++){
+         fin=find_file(myfs->data[dnum[i]].dir,name_list[0]);
+         if(fin!=-1) break;
+       }
+       if(fin==-1){
+           return -1;
+       }
+       free(dnum);
+     }
+       for(int i=1;i<count;i++){
+         dnum=find_dnum(fin,myfs);
+         rn=count_dnum(fin,myfs);
+         if(strncmp(name_list[i],"..",2)==0)
+           fin=myfs->data[dnum[i]].dir.parent;
+         else if(strncmp(name_list[0],".",2)==0)
+           fin=myfs->data[dnum[0]].dir.current;
+        else{
+         for(int j=0;j<rn;j++){
+           fin=find_file(myfs->data[dnum[j]].dir,name_list[i]);
+           if(fin!=-1) break;
+          }
+            if(fin==-1){
+                return -1;
+              }
+            free(dnum);
+          }
+        }
+     }
+    else{
+      int count=0;
+      if(route[strlen(route)-1]=='/')
+       route[strlen(route)-1]=0;
+      for(int i=0;i<=(int)strlen(route);i++){
+        if(route[i]=='/'||route[i]==0){
+          count++;
+        }
+      }
+      name_list=(char (*)[5])calloc(count*5,sizeof(char));
+      temp=strtok(backup,"/");
+      name_list[0][0]=temp[0];
+      name_list[0][1]=temp[1];
+      name_list[0][2]=temp[2];
+      name_list[0][3]=temp[3];
+      for(int i=1;i<count;i++){
+        temp=strtok(NULL,"/");
+        name_list[i][0]=temp[0];
+        name_list[i][1]=temp[1];
+        name_list[i][2]=temp[2];
+        name_list[i][3]=temp[3];
+      }
+      fin=now;
+      dnum=find_dnum(fin,myfs);
+      rn=count_dnum(fin,myfs);
+      if(strncmp(name_list[0],"..",2)==0)
+        fin=myfs->data[dnum[0]].dir.parent;
+      else if(strncmp(name_list[0],".",2)==0)
+        fin=myfs->data[dnum[0]].dir.current;
+      else
+      {
+        for(int i=0;i<rn;i++){
+          fin=find_file(myfs->data[dnum[i]].dir,name_list[0]);
+          if(fin!=-1) break;
+        }
+        if(fin==-1){
+            return -1;
+        }
+      }
+      free(dnum);
+      for(int i=1;i<count;i++){
+        dnum=find_dnum(fin,myfs);
+        rn=count_dnum(fin,myfs);
+        if(strncmp(name_list[i],"..",2)==0)
+          fin=myfs->data[dnum[i]].dir.parent;
+        else if(strncmp(name_list[0],".",2)==0)
+          fin=myfs->data[dnum[0]].dir.current;
+        else
+        {
+          for(int j=0;j<rn;j++){
+            fin=find_file(myfs->data[dnum[j]].dir,name_list[i]);
+            if(fin!=-1) break;
+            }
+            if(fin==-1){
+              return -1;
+            }
+            free(dnum);
+          }
+        }
+    }
+    return fin;
+    free(name_list);
+}
+//경로를 해석해서 최종  inode 번호 return 상대 경로 절대 경로 둘다 해석 가능
+
+int *find_dnum(int num,file_st *myfs){
+  int rn,*dstr,dnum;
+  rn=count_dnum(num,myfs);
+  dstr=(int *)calloc(rn,sizeof(int));
+  dstr[0]=myfs->inode[num].dir_b;
+  dnum=myfs->inode[num].in_b;
+  for(int i=1;i<rn;i++)
+    dstr[i]=btoi(myfs->data[dnum].reg.save,i);
+  return dstr;
+}
+//데이타 블록 리스트로 반환 direct block,indirect block,double indirect block들을 배열로 만들어서 return
+
+int find_file(di save,char *name){
+  int fin=-1,temp;
+  for(int i=0;i<20;i++){
+    temp=strncmp(save.fset[i].fname,name,4);
+    if(temp==0){
+      fin=save.fset[i].finode;
+      break;
+    }
+  }
+  return fin;
+}
+//사용법 ex) fin=find_file(myfs->data[].dir,"abc");
+//디렉터리 파일에서 파일을 찾음 없으면 -1 return
+
+int count_dnum(int num,file_st *myfs){//data block 개수 반환
+  int count=0,dnum;
+  dnum=myfs->inode[num].dir_b;
+  if(dnum!=-1)
+    count++;
+  dnum=myfs->inode[num].in_b;
+  if(dnum!=-1)
+    count+=indir_n(myfs->data[dnum].reg.save);
+  return count;
+}
+//direct block, single indirect blcok,double indirect blcok들의 총 개수를 return
+
+void ct_string(struct tm ct,char *ct_s){
+  sprintf(ct_s,"%04d/%02d/%02d %02d:%02d:%02d",ct.tm_year+1900,ct.tm_mon+1,ct.tm_mday,ct.tm_hour,ct.tm_min,ct.tm_sec);
+}
+//tm 구조체를 문자열로 변경
+
+int mycmp(const void *v1,const void *v2){
+  return strncmp(((fls_st *)(v1))->fname,((fls_st *)(v2))->fname,4);
+}
+//qsort 쓰기위해서
+
+void write_in_file(file_st *myfs,char *my_file_name,int i_empty,int finode){
+  int temp,dnum,fc,fdc,current=0,parent=0; //file count, file data count
+  dnum=myfs->inode[finode].dir_b;
+  fc=myfs->data[dnum].dir.fcount++;
+  current=myfs->data[dnum].dir.current;
+  parent=myfs->data[dnum].dir.parent;
+  fdc=fc/20;
+  if(fdc==0){
+    strncpy(myfs->data[dnum].dir.fset[fc].fname,my_file_name,4);
+    myfs->data[dnum].dir.fset[fc].finode=i_empty;
+    if(fc==19){
+      myfs->inode[finode].in_b=empty_ch(myfs->data_ch,128);
+      bit_mark(myfs->data_ch,myfs->inode[finode].in_b);
+      temp=myfs->inode[finode].in_b;
+      itob(myfs->data[temp].reg.save,empty_ch(myfs->data_ch,128));
+      temp=empty_ch(myfs->data_ch,128);
+      bit_mark(myfs->data_ch,temp);
+      myfs->data[temp].dir.current=current;
+      myfs->data[temp].dir.parent=parent;
+    }
+  }
+  else if(fdc>=1&&fdc<=102){
+    dnum=myfs->inode[finode].in_b;
+    dnum=btoi(myfs->data[dnum].reg.save,fdc);
+    strncpy(myfs->data[dnum].dir.fset[fc%20].fname,my_file_name,4);
+    myfs->data[dnum].dir.fset[fc%20].finode=i_empty;
+    if(fc%20==19&&fdc!=102){
+      temp=myfs->inode[finode].in_b;
+      itob(myfs->data[temp].reg.save,empty_ch(myfs->data_ch,128));
+      temp=empty_ch(myfs->data_ch,128);
+      bit_mark(myfs->data_ch,temp);
+      myfs->data[temp].dir.current=current;
+      myfs->data[temp].dir.parent=parent;
+    }
+  }
+}
+//directory file에 파일 이름과 inode 정보 저장
+
+void remove_in_file(file_st *myfs,char *my_file_name,int wstation){
+  int *dnum,rn,temp,fin,temp2,last=19,last_rn;
+  dnum=find_dnum(wstation,myfs);
+  rn=count_dnum(wstation,myfs);
+  for(int i=0;i<rn;i++){
+    fin=find_file(myfs->data[dnum[i]].dir,my_file_name);
+    if(fin!=-1) {temp=i; break;}
+  }
+  if(fin==-1){
+    printf("error : no file\n");
+    free(dnum);
+    return ;
+  }
+  myfs->data[dnum[0]].dir.fcount-=1;
+  for(int i=0;i<20;i++){
+    if(myfs->data[dnum[rn-1]].dir.fset[i].finode==0){
+        last=i-1;
+        last_rn=rn-1;
+        break;
+    }
+  }
+  if(last==-1){
+    last=19;
+    last_rn=rn-2;
+    rm_bit(myfs->data[myfs->inode[wstation].in_b].reg.save,1,myfs);
+    if(myfs->data[dnum[0]].dir.fcount<20){
+      bit_unmark(myfs->data_ch,myfs->inode[wstation].in_b);
+      reset_db(myfs->inode[wstation].in_b,myfs);
+      myfs->inode[wstation].in_b=-1;
+    }
+  }
+  for(int i=0;i<20;i++){
+    if(strncmp(myfs->data[dnum[temp]].dir.fset[i].fname,my_file_name,4)==0){
+        temp2=i;
+        break;
+    }
+  }
+  myfs->data[dnum[temp]].dir.fset[temp2].fname[0]=myfs->data[dnum[last_rn]].dir.fset[last].fname[0];
+  myfs->data[dnum[temp]].dir.fset[temp2].fname[1]=myfs->data[dnum[last_rn]].dir.fset[last].fname[1];
+  myfs->data[dnum[temp]].dir.fset[temp2].fname[2]=myfs->data[dnum[last_rn]].dir.fset[last].fname[2];
+  myfs->data[dnum[temp]].dir.fset[temp2].fname[3]=myfs->data[dnum[last_rn]].dir.fset[last].fname[3];
+  myfs->data[dnum[temp]].dir.fset[temp2].finode=myfs->data[dnum[last_rn]].dir.fset[last].finode;
+  myfs->data[dnum[last_rn]].dir.fset[last].fname[0]=0;
+  myfs->data[dnum[last_rn]].dir.fset[last].fname[1]=0;
+  myfs->data[dnum[last_rn]].dir.fset[last].fname[2]=0;
+  myfs->data[dnum[last_rn]].dir.fset[last].fname[3]=0;
+  myfs->data[dnum[last_rn]].dir.fset[last].finode=0;
+  free(dnum);
+}
+void change_finfo(file_st *myfs,char *my_file_name,char *change_name,int wstation){
+  int *dnum,rn,temp,fin,temp2;
+  dnum=find_dnum(wstation,myfs);
+  rn=count_dnum(wstation,myfs);
+  for(int i=0;i<rn;i++){
+    fin=find_file(myfs->data[dnum[i]].dir,my_file_name);
+    if(fin!=-1) {temp=i; break;}
+  }
+  if(fin==-1){
+    printf("error : no file\n");
+    free(dnum);
+    return ;
+  }
+  for(int i=0;i<20;i++){
+    if(strncmp(myfs->data[dnum[temp]].dir.fset[i].fname,my_file_name,4)==0){
+        temp2=i;
+        break;
+    }
+  }
+  myfs->data[dnum[temp]].dir.fset[temp2].fname[0]=change_name[0];
+  myfs->data[dnum[temp]].dir.fset[temp2].fname[1]=change_name[1];
+  myfs->data[dnum[temp]].dir.fset[temp2].fname[2]=change_name[2];
+  myfs->data[dnum[temp]].dir.fset[temp2].fname[3]=change_name[3];
+  free(dnum);
+}
+//directory 파일 안에 있는 파일들 정보 삭제
+
+int indir_n(unsigned char *save){
+  int temp,count=0;
+  for(int i=1;i<=102;i++){
+    temp=btoi(save,i);
+    if(temp==0){
+      count=i-1;
+      break;
+    }
+  }
+  return count;
+}
+//indirect block 세는 함수
+
+int dir_n(unsigned char *save){
+  int temp,count=0;
+  for(int i=0;i<128;i++){
+    temp=save[i];
+    if(temp==0){
+      count=i-1;
+      break;
+    }
+  }
+  return count;
+}
+//direct block 세는 함수
+
+int btoi(unsigned char *save,int num){
+  int ind,bit_s,con=0,stack[10],temp;
+  ind=num+(num-1)/4;
+  bit_s=((num-1)*10)%8;
+  for(int i=0;i<8-bit_s;i++){
+    temp=pow(2,7-bit_s-i);
+    temp=save[ind-1]&temp;
+    if(temp!=0)
+      stack[i]=1;
+    else
+      stack[i]=0;
+  }
+  for(int i=8-bit_s;i<10;i++){
+    temp=pow(2,7-i+(8-bit_s));
+    temp=save[ind]&temp;
+    if(temp!=0)
+      stack[i]=1;
+    else
+      stack[i]=0;
+  }
+  for(int i=0;i<10;i++)
+    con+=stack[i]*pow(2,9-i);
+  return con;
+}
+//bit to int 단 num은 1부터~102
+//num번째 있는 숫자를 반환
+
+void itob(unsigned char *save,short num){
+  int temp,emp=103,bit_s;
+  unsigned char first,second;
+  for(int i=1;i<=102;i++){
+    temp=btoi(save,i);
+    if(temp==0){
+      emp=i;
+      break;
+    }
+  }
+  emp=emp-1;
+  bit_s=(emp*10)%8;
+  temp=0;
+  for(int i=0;i<8-bit_s;i++)
+    temp+=pow(2,9-i);
+  temp=num&temp;
+  first=temp>>(2+bit_s);
+  temp=0;
+  for(int i=0;i<2+bit_s;i++)
+    temp+=pow(2,1+bit_s-i);
+  temp=num&temp;
+  second=temp<<(6-bit_s);
+  save[emp]=save[emp]|first;
+  save[emp+1]=save[emp+1]|second;
+}
+//int to bit
+//indirect 블록에 num을 10비트로 저장
+
+void rm_bit(unsigned char *save,short count,file_st *myfs){
+  int temp,emp=103,bit_s;
+  unsigned char first=0,second=0;
+  for(int j=0;j<count;j++){
+    first=0;
+    for(int i=1;i<=102;i++){
+      temp=btoi(save,i);
+      if(temp==0){
+        emp=i;
+        break;
+      }
+    }
+    temp=btoi(save,emp-1);
+    reset_db(temp,myfs);
+    bit_unmark(myfs->data_ch,temp);
+    emp=emp-2;
+    bit_s=(emp*10)%8;
+    for(int i=0;i<bit_s;i++)
