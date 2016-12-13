@@ -2018,3 +2018,82 @@ void rm_bit(unsigned char *save,short count,file_st *myfs){
     emp=emp-2;
     bit_s=(emp*10)%8;
     for(int i=0;i<bit_s;i++)
+      first+=pow(2,7-i);
+    save[emp]=save[emp]&first;
+    save[emp+1]=save[emp+1]&second;
+  }
+}
+//indirect block에서 count개수 만큼 bit를 삭제
+
+int *make_list_emdb(unsigned char *check,int size_c){
+	int *db_empty;
+	db_empty=(int *)malloc(size_c*sizeof(int));
+	for(int i=0;i<size_c;i++){
+		db_empty[i]=empty_ch(check,128);
+		bit_mark(check,db_empty[i]);
+	}
+	return db_empty;
+}
+//size_c개수만큼 빈칸 찾아서 배열로 리턴
+
+int cal_sizec(int file_size){
+	int size_c;
+  if(file_size%128==0&&file_size!=0)
+    file_size-=1;
+	size_c=file_size/128+1;
+	if(size_c==1);
+	else if(size_c>=2&&size_c<=103) size_c+=1;
+	else if(size_c>=104&&size_c<=1012) size_c+=2+(size_c-2)/102;
+	return size_c;
+}
+//파일 크기를 토대로 필요한 데이타 블록 개수 세기
+
+int empty_count(unsigned char *check,int len){
+  int count=0;
+  unsigned char bit_ch,bit_temp;
+  for(int i=0;i<len;i++){
+		for(int j=0;j<8;j++){
+			bit_ch=pow(2,7-j);
+			bit_temp=check[i]&bit_ch;
+			if(bit_temp==0){
+				count++;
+			}
+		}
+	}
+  return count;
+}
+//사용 하지않는 공간 개수 세기
+
+int empty_ch(unsigned char *check,int len){ //empty check
+	unsigned char bit_ch,bit_temp;
+	for(int i=0;i<len;i++){
+		for(int j=0;j<8;j++){
+			bit_ch=pow(2,7-j);
+			bit_temp=check[i]&bit_ch;
+			if(bit_temp==0){
+				return (i*8+j); //처음으로 비어 있는 공간 번호 return
+			}
+		}
+	}
+	return -1; //다 쓰고 있음을 의미
+}
+//비어 있는 공간을 체크함
+
+void bit_mark(unsigned char *check,int num){
+	int room,square,bit;
+	room=num/8;
+	square=num%8;
+	bit=pow(2,7-square);
+	check[room]=check[room]|bit;
+}
+//super block에서 원하는 번호 mark
+void bit_unmark(unsigned char *check,int num){
+	int room,square,bit;
+	room=num/8;
+	square=num%8;
+	bit=pow(2,7-square);
+	bit=255-bit;
+	check[room]=check[room]&bit;
+}
+//super block 에서 원하는 번호 unmark
+
