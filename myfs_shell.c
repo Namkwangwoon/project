@@ -910,3 +910,557 @@ void myls(char *order,file_st *myfs){
     printf("d %6d %s ..\n",0,ct_s);
     for(int i=0;i<dfn;i++){
       fin=srt[i].finode;
+      ct_string(myfs->inode[fin].c_time,ct_s);
+      printf("%c %6d %s %s\n",myfs->inode[fin].type,myfs->inode[fin].size,ct_s,srt[i].fname);
+    }
+  }
+  else if(opt[0]=='-'&&opt[1]=='i'&&opt[2]==0){//-i 옵션
+    int fin;
+    fin=myfs->data[myfs->inode[wstation].dir_b].dir.current;
+    printf("%3d .\n",fin+1);
+    fin=myfs->data[myfs->inode[wstation].dir_b].dir.parent;
+    printf("%3d ..\n",fin+1);
+    for(int i=0;i<dfn;i++){
+      fin=srt[i].finode;
+      printf("%3d %s\n",fin+1,srt[i].fname);
+    }
+  }
+  else if((opt[0]=='-'&&opt[1]=='l'&&opt[2]=='i')||(opt[0]=='-'&&opt[1]=='i'&&opt[2]=='l')){ //-i 옵션과 -l 옵션 둘다일 경우
+    int fin;
+    fin=myfs->data[myfs->inode[wstation].dir_b].dir.current;
+    ct_string(myfs->inode[fin].c_time,ct_s);
+    printf("%3d d %6d %s .\n",fin+1,0,ct_s);
+    fin=myfs->data[myfs->inode[wstation].dir_b].dir.parent;
+    ct_string(myfs->inode[fin].c_time,ct_s);
+    printf("%3d d %6d %s ..\n",fin+1,0,ct_s);
+    for(int i=0;i<dfn;i++){
+      fin=srt[i].finode;
+      ct_string(myfs->inode[fin].c_time,ct_s);
+      printf("%3d %c %6d %s %s\n",fin+1,myfs->inode[fin].type,myfs->inode[fin].size,ct_s,srt[i].fname);
+    }
+  }
+  else {
+    printf(".\n..\n");
+    for(int i=0;i<dfn;i++)
+      printf("%s\n",srt[i].fname);
+  }
+  free(srt);
+}
+//directory 파일로부터 정보를 읽어서 출력
+
+void mycat(char *order,file_st *myfs){
+  char f1name[1000]="",f2name[1000]="",f3name[1000]="",f4name[1000]="",*name;
+  short wstation;
+  int rn,rn2,rn3,*dnum,*dnum2,*dnum3,fin,file_size,temp,*str,newi;
+  time_t nowt;
+  nowt=time(NULL);
+  sscanf(order,"%*s %s %s %s %s",f1name,f2name,f3name,f4name);
+
+  if(f1name[0]!=0&&f2name[0]==0&&f3name[0]==0&&f4name[0]==0){
+    wstation=find_rinode(f1name,myfs);
+    fin=wstation;
+    if(fin==-1){
+      printf("error : no file '%s'\n",f1name);
+      return ;
+    }
+    if(myfs->inode[fin].type=='d'){
+      printf("error : directory file '%s'\n",f1name);
+      return ;
+    }
+    file_size=myfs->inode[fin].size;
+    temp=file_size;
+    str=find_dnum(fin,myfs);
+    rn=count_dnum(fin,myfs);
+    for(int i=0;i<rn;i++){
+      for(int j=0;j<128;j++)
+        printf("%c",myfs->data[str[i]].reg.save[j]);
+    }
+  }
+  if(f1name[0]!=0&&f2name[0]=='>'&&f3name[0]!=0&&f4name[0]==0){
+    if(find_rinode(f1name,myfs)==-1 ){
+      printf("error : no file '%s'\n",f1name);
+      return ;
+    }
+    if(myfs->inode[find_rinode(f1name,myfs)].type=='d'){
+      printf("error : '%s' is directory file\n",f1name);
+      return ;
+    }
+    if(myfs->inode[find_rinode(f3name,myfs)].type=='d'){
+      printf("error : '%s' is directory file\n",f3name);
+      return ;
+    }
+    mycp(f1name,f3name,myfs);
+  }
+  if(f1name[0]!=0&&f2name[0]!=0&&f3name[0]==0&&f4name[0]==0){
+    wstation=find_rinode(f1name,myfs);
+    fin=wstation;
+    if(fin==-1){
+      printf("error : no file '%s'\n",f1name);
+      return ;
+    }
+      file_size=myfs->inode[fin].size;
+      temp=file_size;
+      str=find_dnum(fin,myfs);
+      rn=count_dnum(fin,myfs);
+      for(int i=0;i<rn;i++){
+        if(file_size-128>=0){
+          temp=128;
+          file_size=file_size-128;
+        }
+        else
+          temp=file_size;
+        for(int j=0;j<temp;j++)
+          printf("%c",myfs->data[str[i]].reg.save[j]);
+      }
+      free(str);
+      wstation=find_rinode(f2name,myfs);
+      fin=wstation;
+      if(fin==-1){
+        printf("error : no file '%s'\n",f2name);
+        return ;
+      }
+        file_size=myfs->inode[fin].size;
+        temp=file_size;
+        str=find_dnum(fin,myfs);
+        rn=count_dnum(fin,myfs);
+        for(int i=0;i<rn;i++){
+          if(file_size-128>=0){
+            temp=128;
+            file_size=file_size-128;
+          }
+          else
+            temp=file_size;
+          for(int j=0;j<temp;j++)
+            printf("%c",myfs->data[str[i]].reg.save[j]);
+        }
+        free(str);
+  }
+  if(f1name[0]!=0&&f2name[0]!=0&&f3name[0]=='>'&&f4name[0]!=0){
+    if(find_rinode(f1name,myfs)==-1 ){
+      printf("error : no file '%s'\n",f1name);
+      return ;
+    }
+    if(find_rinode(f2name,myfs)==-1 ){
+      printf("error : no file '%s'\n",f2name);
+      return ;
+    }
+    if(myfs->inode[find_rinode(f1name,myfs)].type=='d'){
+      printf("error : '%s' is directory file\n",f1name);
+      return ;
+    }
+    if(myfs->inode[find_rinode(f2name,myfs)].type=='d'){
+      printf("error : '%s' is directory file\n",f2name);
+      return ;
+    }
+    if(find_rinode(f1name,myfs)==find_rinode(f3name,myfs)){
+      printf("error : input file is same output file\n");
+      return ;
+    }
+    if(find_rinode(f2name,myfs)==find_rinode(f3name,myfs)){
+      printf("error : input file is same output file\n");
+      return ;
+    }
+    dnum=find_dnum(find_rinode(f1name,myfs),myfs);
+    dnum2=find_dnum(find_rinode(f2name,myfs),myfs);
+    rn=count_dnum(find_rinode(f1name,myfs),myfs);
+    rn2=count_dnum(find_rinode(f2name,myfs),myfs);
+    if(find_rinode(f4name,myfs)==-1){ //파일이 없어서 새로 만들어야 함
+      int size_c;
+      newi=empty_ch(myfs->inode_ch,64);
+      bit_mark(myfs->inode_ch,newi);
+      file_size=myfs->inode[find_rinode(f1name,myfs)].size+myfs->inode[find_rinode(f2name,myfs)].size;
+      size_c=cal_sizec(file_size);
+      str=make_list_emdb(myfs->data_ch,size_c);
+      myfs->inode[newi].type='-';
+      myfs->inode[newi].c_time=*(localtime(&nowt));
+      myfs->inode[newi].size=myfs->inode[find_rinode(f1name,myfs)].size+myfs->inode[find_rinode(f2name,myfs)].size;
+      myfs->inode[newi].dir_b=str[0];
+      myfs->inode[newi].in_b=str[size_c-1];
+      myfs->inode[newi].indb_b=-1;
+      for(int i=1;i<size_c-1;i++){
+        itob(myfs->data[myfs->inode[newi].in_b].reg.save,str[i]);
+      }
+      dnum3=find_dnum(newi,myfs);
+      rn3=count_dnum(newi,myfs);
+      int pos=0;
+      for(int i=0;i<rn;i++){
+        if(i==rn-1){
+          for(int j=0;j<myfs->inode[find_rinode(f1name,myfs)].size-128*(rn-1);j++){
+            myfs->data[dnum3[pos/128]].reg.save[pos%128]=myfs->data[dnum[i]].reg.save[j];
+            pos++;
+          }
+        }
+        else
+          for(int j=0;j<128;j++){
+            myfs->data[dnum3[pos/128]].reg.save[pos%128]=myfs->data[dnum[i]].reg.save[j];
+            pos++;
+          }
+      }
+      for(int i=0;i<rn2;i++){
+        if(i==rn2-1){
+          for(int j=0;j<myfs->inode[find_rinode(f2name,myfs)].size-128*(rn2-1);j++){
+            myfs->data[dnum3[pos/128]].reg.save[pos%128]=myfs->data[dnum2[i]].reg.save[j];
+            pos++;
+          }
+        }
+        else
+          for(int j=0;j<128;j++){
+            myfs->data[dnum3[pos/128]].reg.save[pos%128]=myfs->data[dnum2[i]].reg.save[j];
+            pos++;
+          }
+      }
+      name=change_route(f4name);
+      if(name==NULL) {name=f4name; wstation=now;}
+      else if(name==(char *)1) {name=f4name+1; wstation=0;}
+      else  {wstation=find_rinode(f4name,myfs);}
+      write_in_file(myfs,name,newi,wstation);
+      free(dnum3);
+      free(str);
+    }
+    else if(find_rinode(f4name,myfs)!=-1){ //파일이 이미 있어서 수정 해야 함
+      dnum3=find_dnum(find_rinode(f4name,myfs),myfs);
+      rn3=count_dnum(find_rinode(f4name,myfs),myfs);
+      if(rn3==1){
+        myfs->inode[find_rinode(f4name,myfs)].in_b=empty_ch(myfs->data_ch,128);
+        bit_mark(myfs->data_ch,myfs->inode[find_rinode(f4name,myfs)].in_b);
+        str=make_list_emdb(myfs->data_ch,rn+rn2-1);
+        for(int i=0;i<rn+rn2-1;i++)
+          itob(myfs->data[myfs->inode[find_rinode(f4name,myfs)].in_b].reg.save,str[i]);
+        free(str);
+      }
+      else if(rn3>rn+rn2){
+        rm_bit(myfs->data[myfs->inode[find_rinode(f4name,myfs)].in_b].reg.save,rn3-rn-rn2,myfs);
+      }
+      else if(rn3<rn+rn2){
+        str=make_list_emdb(myfs->data_ch,rn+rn2-rn3);
+        for(int i=0;i<rn+rn2-rn3;i++)
+          itob(myfs->data[myfs->inode[find_rinode(f4name,myfs)].in_b].reg.save,str[i]);
+        free(str);
+      }
+      myfs->inode[find_rinode(f4name,myfs)].c_time=*(localtime(&nowt));
+      myfs->inode[find_rinode(f4name,myfs)].size=myfs->inode[find_rinode(f1name,myfs)].size+myfs->inode[find_rinode(f2name,myfs)].size;
+      dnum3=find_dnum(find_rinode(f4name,myfs),myfs);
+      for(int i=0;i<rn;i++){
+        for(int j=0;j<128;j++)
+          myfs->data[dnum3[i]].reg.save[j]=myfs->data[dnum[i]].reg.save[j];
+      }
+      for(int i=0;i<rn2;i++){
+        for(int j=0;j<128;j++)
+          myfs->data[dnum3[i+rn]].reg.save[j]=myfs->data[dnum2[i]].reg.save[j];
+      }
+      free(dnum3);
+    }
+    free(dnum);
+    free(dnum2);
+  }
+}
+//리다이렉션과 파일 출력
+
+void myshowinode(char *order,file_st *myfs){
+  int num;
+  char ct_s[20];
+  sscanf(order,"%*s %d",&num);
+  if(myfs->inode[num-1].type=='d')
+    printf("file type : directory file\n");
+  else if(myfs->inode[num-1].type==0){
+    printf("error : empty inode '%d'\n",num);
+    return;
+  }
+  else if(myfs->inode[num-1].type=='-')
+    printf("file type : regular file\n");
+  printf("file size : %d byte\n",myfs->inode[num-1].size);
+  ct_string(myfs->inode[num-1].c_time,ct_s);
+  printf("modified time : %s\n",ct_s);
+  printf("data block list : %d, %d, %d\n",myfs->inode[num-1].dir_b+1,myfs->inode[num-1].in_b+1,myfs->inode[num-1].indb_b+1);
+}
+//inode의 정보 출력
+
+void myshowblock(char *order,file_st *myfs){
+  int num;
+  sscanf(order,"%*s %d",&num);
+  for(int i=0;i<128;i++)
+    printf("%c",myfs->data[num-1].reg.save[i]);
+}
+//data block을 출력
+
+void mytouch(char *order,file_st *myfs){
+  time_t nowt;
+  nowt=time(NULL);
+  int fin;
+  char *name,route[1000]="";
+  sscanf(order,"%*s %s",route);
+  fin=find_rinode(route,myfs);
+  if(route[strlen(route)-1]=='/')
+    route[strlen(route)-1]=0;
+  if(fin==-1){
+    int i_empty,d_empty;
+    name=change_route(route);
+    fin=find_rinode(route,myfs);
+    if(name==NULL || name==(char *)1) ;
+    else if(fin==-1){printf("error : no directory\n");return;}
+    //파일 생성
+    i_empty=empty_ch(myfs->inode_ch,64);
+    bit_mark(myfs->inode_ch,i_empty);
+    myfs->inode[i_empty].type='-';
+    myfs->inode[i_empty].c_time=*(localtime(&nowt));
+    myfs->inode[i_empty].size=0;
+    d_empty=empty_ch(myfs->data_ch,128);
+    bit_mark(myfs->data_ch,d_empty);
+    myfs->inode[i_empty].dir_b=d_empty;
+    myfs->inode[i_empty].in_b=-1;
+    myfs->inode[i_empty].indb_b=-1;
+    if(name==NULL)
+      write_in_file(myfs,route,i_empty,now);
+    else if(name==(char *)1){
+      write_in_file(myfs,route+1,i_empty,0);
+    }
+    else {
+      int ch;
+      ch=find_rinode(route,myfs);
+      write_in_file(myfs,name,i_empty,ch);
+      free(name);
+    }
+  }
+  else{
+    myfs->inode[fin].c_time=*(localtime(&nowt));
+  }
+}
+//파일을 생성 및 수정 시간을 바꿈
+
+void mycp(char *f1route,char *f2route,file_st *myfs){
+  int f1in,f2in,wstation,newi,size_c,*emdb,*dnum1,*dnum2,rn,size,rn2,*temp;
+  char *name;
+  time_t nowt;
+  nowt=time(NULL);
+  f1in=find_rinode(f1route,myfs);
+  if(f1in==-1){
+    printf("error : %s is no file\n",f1route);
+    return ;
+  }
+  if(myfs->inode[f1in].type=='d'){
+    printf("error : %s is directory file\n",f1route);
+    return ;
+  }
+  f2in=find_rinode(f2route,myfs); //파일이 없는 경우 or 있는 경우
+  if(f2in==-1){ //파일이 없는경우
+    name=change_route(f2route);
+    if(name==NULL) {name=f2route; wstation=now;}
+    else if(name==(char *)1) {name=f2route+1; wstation=0;}
+    else  {wstation=find_rinode(f2route,myfs);}
+    newi=empty_ch(myfs->inode_ch,64);
+    bit_mark(myfs->inode_ch,newi);
+    myfs->inode[newi].type='-';
+    myfs->inode[newi].c_time=*(localtime(&nowt));
+    myfs->inode[newi].size=myfs->inode[f1in].size;
+    size=myfs->inode[f1in].size;
+    size_c=cal_sizec(size);
+    emdb=make_list_emdb(myfs->data_ch,size_c);
+    myfs->inode[newi].dir_b=emdb[0];
+    if(size_c>1){
+      myfs->inode[newi].in_b=emdb[size_c-1];
+      for(int i=1;i<size_c-1;i++)
+        itob(myfs->data[emdb[size_c-1]].reg.save,emdb[i]);
+      myfs->inode[newi].indb_b=-1;
+    }
+    else {
+      myfs->inode[newi].in_b=-1;
+      myfs->inode[newi].indb_b=-1;
+    }
+    free(emdb);
+    dnum1=find_dnum(f1in,myfs);
+    rn=count_dnum(f1in,myfs);
+    dnum2=find_dnum(newi,myfs);
+    for(int i=0;i<rn;i++){
+      if(i==rn-1){
+        for(int j=0;j<size;j++)
+          myfs->data[dnum2[i]].reg.save[j]=myfs->data[dnum1[i]].reg.save[j];
+      }
+      else{
+        for(int j=0;j<128;j++)
+          myfs->data[dnum2[i]].reg.save[j]=myfs->data[dnum1[i]].reg.save[j];
+        size=size-128;
+      }
+    }
+    write_in_file(myfs,name,newi,wstation);
+    free(dnum1);
+    free(dnum2);
+  }
+  else { //파일이 이미 있는 경우
+    char backup[1000]="";
+    strcpy(backup,f1route);
+    if(myfs->inode[f2in].type=='d'){ //directory일 경우 거기안에 파일 만들기
+      wstation=f2in;
+      name=change_route(backup);
+      if(name==NULL) {name=backup;}
+      else if(name==(char *)1) {name=backup+1;}
+      newi=empty_ch(myfs->inode_ch,64);
+      bit_mark(myfs->inode_ch,newi);
+      myfs->inode[newi].type='-';
+      myfs->inode[newi].c_time=*(localtime(&nowt));
+      myfs->inode[newi].size=myfs->inode[f1in].size;
+      size=myfs->inode[f1in].size;
+      size_c=cal_sizec(size);
+      emdb=make_list_emdb(myfs->data_ch,size_c);
+      myfs->inode[newi].dir_b=emdb[0];
+      if(size_c>1){
+        myfs->inode[newi].in_b=emdb[size_c-1];
+        for(int i=1;i<size_c-1;i++)
+          itob(myfs->data[emdb[size_c-1]].reg.save,emdb[i]);
+        myfs->inode[newi].indb_b=-1;
+      }
+      else {
+        myfs->inode[newi].in_b=-1;
+        myfs->inode[newi].indb_b=-1;
+      }
+      free(emdb);
+      dnum1=find_dnum(f1in,myfs);
+      rn=count_dnum(f1in,myfs);
+      dnum2=find_dnum(newi,myfs);
+      for(int i=0;i<rn;i++){
+        if(i==rn-1){
+          for(int j=0;j<size;j++)
+            myfs->data[dnum2[i]].reg.save[j]=myfs->data[dnum1[i]].reg.save[j];
+        }
+        else{
+          for(int j=0;j<128;j++)
+            myfs->data[dnum2[i]].reg.save[j]=myfs->data[dnum1[i]].reg.save[j];
+          size=size-128;
+        }
+      }
+      write_in_file(myfs,name,newi,wstation);
+      free(dnum1);
+      free(dnum2);
+    }
+    else {  //regular 파일일 경우 수정
+      dnum1=find_dnum(f1in,myfs);
+      rn=count_dnum(f1in,myfs);
+      dnum2=find_dnum(f2in,myfs);
+      rn2=count_dnum(f2in,myfs);
+      if(rn<rn2){
+        if(rn==1){
+          for(int i=1;i<rn2;i++){
+              reset_db(dnum2[i],myfs);
+              bit_unmark(myfs->data_ch,dnum2[i]);
+          }
+          reset_db(myfs->inode[f2in].in_b,myfs);
+          bit_unmark(myfs->data_ch,myfs->inode[f2in].in_b);
+          myfs->inode[f2in].in_b=-1;
+        }
+        else
+          rm_bit(myfs->data[myfs->inode[f2in].in_b].reg.save,rn2-rn,myfs);
+      }
+      else if(rn>rn2){
+        if(rn2==1){
+          temp=make_list_emdb(myfs->data_ch,rn-rn2+1);
+          myfs->inode[f2in].in_b=temp[rn-rn2];
+          bit_mark(myfs->data_ch,temp[rn-rn2]);
+          for(int i=0;i<rn-rn2;i++){
+            bit_mark(myfs->data_ch,temp[i]);
+            itob(myfs->data[myfs->inode[f2in].in_b].reg.save,temp[i]);
+          }
+          free(temp);
+        }
+        else{
+          temp=make_list_emdb(myfs->data_ch,rn-rn2);
+          for(int i=0;i<rn-rn2;i++){
+            bit_mark(myfs->data_ch,temp[i]);
+            itob(myfs->data[myfs->inode[f2in].in_b].reg.save,temp[i]);
+          }
+          free(temp);
+        }
+      }
+      free(dnum2);
+      dnum2=find_dnum(f2in,myfs);
+      for(int i=0;i<rn;i++){
+        reset_db(dnum2[i],myfs);
+        for(int j=0;j<128;j++)
+          myfs->data[dnum2[i]].reg.save[j]=myfs->data[dnum1[i]].reg.save[j];
+      }
+      myfs->inode[f2in].c_time=*(localtime(&nowt));
+      myfs->inode[f2in].size=myfs->inode[f1in].size;
+    }
+  }
+}
+//파일 복사
+
+void mymv(char *order,file_st *myfs){
+    // 시간, 파일 이름
+    //  mv fn dir
+    //  mv fn dir/fn2
+    //  mv fn fn2
+    //  mv fn already_f    (already_f은 이미 있는 파일,이미 있는 파일은 삭제)
+    char temp[1000]="",f1route[1000]="",f2route[1000]="",*name2,*name1;;
+    int f1in,f2in,wstation,nwstation;
+    time_t nowt;
+    nowt=time(NULL);
+    sscanf(order,"%*s %s %s",f1route,f2route);
+    f1in=find_rinode(f1route,myfs);
+    if(f1in==-1){
+      printf("error : no file\n");
+      return ;
+    }
+    name1=change_route(f1route);
+    if(name1==NULL) {name1=f1route; nwstation=now;}
+    else if(name1==(char *)1) {name1=f1route+1; nwstation=0;}
+    else {nwstation=find_rinode(f1route,myfs);}
+    f2in=find_rinode(f2route,myfs);
+    if(f2in==-1){ //dir 디렉토리안에 새로 이름 바꿀때, 파일 이름이 없을 때 바꾸기->같은 경우
+      name2=change_route(f2route);
+      if(name2==NULL) {name2=f2route; wstation=now;}
+      else if(name2==(char *)1) {name2=f2route+1; wstation=0;}
+      else {wstation=find_rinode(f2route,myfs);}
+      if(wstation==nwstation){
+        change_finfo(myfs,name1,name2,wstation);
+      }
+      else{
+        remove_in_file(myfs,name1,nwstation);
+        write_in_file(myfs,name2,f1in,wstation);
+      }
+      myfs->inode[f1in].c_time=*(localtime(&nowt));
+    }
+    else { //파일이 디렉토리 파일일 경우, 이미 있는 파일을 삭제하고 이름 바꾸기
+      if(f1in==f2in){
+        printf("error : same file\n");
+        return ;
+      }
+      if(myfs->inode[f2in].type=='d'){
+        if(f2in==nwstation){
+          printf("error : same file\n");
+          return ;
+        }
+        else{
+          int *fin_temp,rn_temp,fch;
+          fin_temp=find_dnum(f2in,myfs);
+          rn_temp=count_dnum(f2in,myfs);
+          for(int i=0;i<rn_temp;i++){
+            fch=find_file(myfs->data[fin_temp[i]].dir,name1);
+            if(fch!=-1) break;
+          }
+          if(fch!=-1){
+            sprintf(temp,"myrm %s/%s",f2route,name1);
+            myrm(temp,myfs);
+          }
+          remove_in_file(myfs,name1,nwstation);
+          write_in_file(myfs,name1,f1in,f2in);
+          free(fin_temp);
+        }
+      }
+      else {
+        sprintf(temp,"myrm %s",f2route);
+        myrm(temp,myfs);
+        name2=change_route(f2route);
+        if(name2==NULL) {name2=f2route; wstation=now;}
+        else if(name2==(char *)1) {name2=f2route+1; wstation=0;}
+        else {wstation=find_rinode(f2route,myfs);}
+        if(wstation==nwstation){
+          change_finfo(myfs,name1,name2,wstation);
+        }
+        else{
+          remove_in_file(myfs,name1,nwstation);
+          write_in_file(myfs,name2,f1in,wstation);
+        }
+      }
+      myfs->inode[f1in].c_time=*(localtime(&nowt));
+    }
+}
+//파일의 이름을 바꾸거나 경로를 바꿈 수정 시간도 바뀜
