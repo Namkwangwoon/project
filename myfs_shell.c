@@ -452,3 +452,461 @@ void mycd(char *order,file_st *myfs,tree_node *root,tree_node **n2ow){
                  count--;
                  break;
               }
+              if(route[i]=='/' && route[i+1]!=0)
+                 count++;
+              else if(route[i]=='/'&&route[i+1]==0)
+                 break;
+              if(route[i] == 0)
+                 break;
+              i++;
+           }
+           name_list=(char (*)[5])calloc((count+1)*5,sizeof(char));
+           name_list[0][0]='/';
+           name_list[0][1]=0;
+           name_list[0][2]=0;
+           name_list[0][3]=0;
+           if(count>=1){
+             temp=strtok(route,"/");
+             name_list[1][0]=temp[0];
+             name_list[1][1]=temp[1];
+             name_list[1][2]=temp[2];
+             name_list[1][3]=temp[3];
+            for(int i=2;i<=count;i++){
+              temp=strtok(NULL,"/");
+              name_list[i][0]=temp[0];
+              name_list[i][1]=temp[1];
+              name_list[i][2]=temp[2];
+              name_list[i][3]=temp[3];
+            }
+          }
+          ws=change_now(name_list,count+1,root,*n2ow);
+          *n2ow=ws;
+        i=0;
+        while(1){
+            strcpy(stack[i],ws->fname);
+            if(strncmp(stack[i],"/",1)==0)
+              break;
+            i++;
+            ws=ws->parents;
+        }
+        for(int j=i-1;j>=0;j--){
+          if(j==i-1)
+            sprintf(now_dir,"/%s",stack[j]);
+          else
+            sprintf(now_dir+strlen(stack[j])+1,"/%s",stack[j]);
+        }
+    }
+    else{ //상대 경로
+      for(int j=1;j<10000;j++)
+        now_dir[j]=0;
+        int count=0;
+        if(route[strlen(route)-1]=='/')
+         route[strlen(route)-1]=0;
+        for(int k=0;k<=(int)strlen(route);k++){
+          if(route[k]=='/'||route[k]==0){
+            count++;
+          }
+        }
+        name_list=(char (*)[5])calloc(count*5,sizeof(char));
+          temp=strtok(route,"/");
+          name_list[0][0]=temp[0];
+          name_list[0][1]=temp[1];
+          name_list[0][2]=temp[2];
+          name_list[0][3]=temp[3];
+         for(int k=1;k<count;k++){
+           temp=strtok(NULL,"/");
+           name_list[k][0]=temp[0];
+           name_list[k][1]=temp[1];
+           name_list[k][2]=temp[2];
+           name_list[k][3]=temp[3];
+         }
+         ws=change_now(name_list,count,root,*n2ow);
+        *n2ow=ws;
+         i=0;
+         while(1){
+             strcpy(stack[i],ws->fname);
+             if(strncmp(stack[i],"/",1)==0)
+               break;
+             i++;
+             ws=ws->parents;
+         }
+         for(int j=i-1;j>=0;j--){
+           if(j==i-1)
+             sprintf(now_dir,"/%s",stack[j]);
+           else
+             sprintf(now_dir+strlen(stack[j])+1,"/%s",stack[j]);
+         }
+    }
+    now=fin;
+  }
+}
+//경로를 해석하고 tree로 가서 경로명 출력
+
+void mymkdir(char *order,file_st *myfs){
+  char route[1000]="",dname[5]="",temp[1000]="";
+  int fin,inum,dnum;
+  time_t nowt;
+  nowt=time(NULL);
+  sscanf(order,"%*s %s",route);
+  if(route[strlen(route)-1]=='/')
+   route[strlen(route)-1]=0;
+  if(route[0]=='/'){ //절대 경로
+   int count=1,i=1;
+     while(1)
+     {
+        if(route[2]==0)
+        {
+           count--;
+           break;
+        }
+        if(route[i]=='/' && route[i+1]!=0)
+           count++;
+        else if(route[i]=='/'&&route[i+1]==0)
+           break;
+        if(route[i] == 0)
+           break;
+        i++;
+     }
+     if(count!=1){
+      for(int i=strlen(route)-1,j=0;;i--,j++){
+        if(route[i]=='/')
+          break;
+        else{
+          temp[j]=route[i];
+          route[i]=0;
+        }
+      }
+      for(int i=0;i<4;i++)
+        dname[i]=temp[strlen(temp)-1-i];
+      fin=find_rinode(route,myfs);
+      }
+      else{
+         strncpy(dname,route+1,4);
+         fin=0;
+      }
+      if(fin==-1){
+        printf("error : no directory '%s'\n",route);
+        return ;
+      }
+      else{
+        int *dnum,rn,temp;
+        dnum=find_dnum(fin,myfs);
+        rn=count_dnum(fin,myfs);
+        for(int i=0;i<rn;i++){
+          temp=find_file(myfs->data[dnum[i]].dir,dname);
+          if(temp!=-1) {
+            printf("error : file already exists\n");
+            return ;
+          }
+        }
+        free(dnum);
+      }
+      inum=empty_ch(myfs->inode_ch,64);
+      bit_mark(myfs->inode_ch,inum);
+      dnum=empty_ch(myfs->data_ch,128);
+      bit_mark(myfs->data_ch,dnum);
+      myfs->inode[inum].type='d';
+      myfs->inode[inum].c_time=*(localtime(&nowt));
+      myfs->inode[inum].size=0;
+      myfs->inode[inum].dir_b=dnum;
+      myfs->inode[inum].in_b=-1;
+      myfs->inode[inum].indb_b=-1;
+      myfs->data[dnum].dir.current=inum;
+      myfs->data[dnum].dir.parent=fin;
+      myfs->data[dnum].dir.fcount=0;
+      write_in_file(myfs,dname,inum,fin);
+  }
+  else{ //상대 경로
+    int count=0;
+    if(route[strlen(route)-1]=='/')
+     route[strlen(route)-1]=0;
+    for(int i=0;i<=(int)strlen(route);i++){
+      if(route[i]=='/'||route[i]==0){
+        count++;
+      }
+    }
+    if(count!=1){
+     for(int i=strlen(route)-1,j=0;;i--,j++){
+       if(route[i]=='/')
+         break;
+       else{
+         temp[j]=route[i];
+         route[i]=0;
+       }
+     }
+     for(int i=0;i<4;i++)
+       dname[i]=temp[strlen(temp)-1-i];
+     fin=find_rinode(route,myfs);
+    }
+    else {
+       strncpy(dname,route,4);
+       fin=now;
+    }
+    if(fin==-1){
+      printf("error : no directory '%s'\n",route);
+      return ;
+    }
+    else{
+      int *dnum,rn,temp;
+      dnum=find_dnum(fin,myfs);
+      rn=count_dnum(fin,myfs);
+      for(int i=0;i<rn;i++){
+        temp=find_file(myfs->data[dnum[i]].dir,dname);
+        if(temp!=-1) {
+          printf("error : file already exists\n");
+          return ;
+        }
+      }
+      free(dnum);
+    }
+    inum=empty_ch(myfs->inode_ch,64);
+    bit_mark(myfs->inode_ch,inum);
+    dnum=empty_ch(myfs->data_ch,128);
+    bit_mark(myfs->data_ch,dnum);
+    myfs->inode[inum].type='d';
+    myfs->inode[inum].c_time=*(localtime(&nowt));
+    myfs->inode[inum].size=0;
+    myfs->inode[inum].dir_b=dnum;
+    myfs->inode[inum].in_b=-1;
+    myfs->inode[inum].indb_b=-1;
+    myfs->data[dnum].dir.current=inum;
+    myfs->data[dnum].dir.parent=fin;
+    myfs->data[dnum].dir.fcount=0;
+    write_in_file(myfs,dname,inum,fin);
+  }
+}
+//폴더를 생성
+
+void myshowfile(char *order,file_st *myfs){
+  int num1,num2,*dnum,fin,size,n1b,n2b,n1r,n2r;
+  char route[1000];
+  sscanf(order,"%*s %d %d %s",&num1,&num2,route);
+  fin=find_rinode(route,myfs);
+  if(fin==-1){
+      printf("error : no file '%s'\n",route);
+      return ;
+  }
+  size=myfs->inode[fin].size;
+  if(num1>size||num2>size){
+    printf("error : file size is %d\n",size);
+    return;
+  }
+  dnum=find_dnum(fin,myfs);
+  if(num1%128==0&&num1!=0)
+    n1b=num1/128-1;
+  else
+    n1b=num1/128;
+  if(num2%128==0&&num2!=0)
+    n2b=num2/128-1;
+  else
+    n2b=num2/128;
+  n1r=num1%128;
+  if(n1r==0&&num1!=0)
+    n1r=128;
+  n2r=num2%128;
+  if(n2r==0&&num2!=0)
+      n2r=128;
+  if(n1b==n2b){
+    for(int i=n1r-1;i<n2r;i++)
+    printf("%c",myfs->data[dnum[n1b]].reg.save[i]);
+    return ;
+  }
+  for(int i=n1r-1;i<128;i++){
+    printf("%c",myfs->data[dnum[n1b]].reg.save[i]);
+  }
+  for(int i=n1b+1;i<=n2b-1;i++){
+    for(int j=0;j<128;j++)
+      printf("%c",myfs->data[dnum[i]].reg.save[j]);
+  }
+  for(int i=0;i<n2r;i++){
+    printf("%c",myfs->data[dnum[n2b]].reg.save[i]);
+  }
+}
+//파일의 원하는 byte부터 원하는 byte를 출력
+
+void mystate(char *order,file_st *myfs){
+  int data_c;
+  data_c=empty_count(myfs->inode_ch,64);
+  printf("free inode : %d\n",data_c);
+  data_c=empty_count(myfs->data_ch,128);
+  printf("free data block : %d\n",data_c);
+}
+//현재 상태를 알려줌
+
+void mycpfrom(char *order,file_st *myfs){
+  char my_file_name[5]="";
+	char file_name[1000];
+  int file_size,i_empty,*db_empty,size_c,data_c,wstation=now;
+	FILE *fop;
+	time_t ct;
+	ct=time(NULL);
+  sscanf(order,"%*s %s %c %c %c %c ",file_name,&my_file_name[0],&my_file_name[1],&my_file_name[2],&my_file_name[3]);
+  fop=fopen(file_name,"rb");
+  if(fop==NULL){
+    printf("error : no file '%s'\n",file_name);
+    return ;
+  }
+  {
+    int *dnum,rn,temp;
+    dnum=find_dnum(wstation,myfs);
+    rn=count_dnum(wstation,myfs);
+    for(int i=0;i<rn;i++){
+      temp=find_file(myfs->data[dnum[i]].dir,my_file_name);
+      if(temp!=-1) {
+        printf("error : file already exists\n");
+        return ;
+      }
+    }
+    free(dnum);
+  }
+  fseek(fop,0,SEEK_END);
+	file_size=ftell(fop);
+	fseek(fop,0,SEEK_SET);
+  size_c=cal_sizec(file_size);
+  data_c=empty_count(myfs->data_ch,128);
+
+  if(size_c<=data_c){
+		i_empty=empty_ch(myfs->inode_ch,64);
+		bit_mark(myfs->inode_ch,i_empty);
+
+		myfs->inode[i_empty].type='-';
+		myfs->inode[i_empty].c_time=*(localtime(&ct));
+		myfs->inode[i_empty].size=file_size;
+		db_empty=make_list_emdb(myfs->data_ch,size_c);
+		write_in_file(myfs,my_file_name,i_empty,wstation);
+
+		if(size_c==1){
+			myfs->inode[i_empty].dir_b=db_empty[0];
+			myfs->inode[i_empty].in_b=-1;
+			myfs->inode[i_empty].indb_b=-1;
+			fread(myfs->data[db_empty[0]].reg.save,file_size,1,fop);
+		}
+		else if(size_c>=3&&size_c<=104){
+			myfs->inode[i_empty].dir_b=db_empty[0];
+			myfs->inode[i_empty].in_b=db_empty[size_c-1];
+			myfs->inode[i_empty].indb_b=-1;
+      for(int i=1;i<size_c-1;i++)
+        itob(myfs->data[db_empty[size_c-1]].reg.save,db_empty[i]);
+      for(int i=0;i<size_c-2;i++)
+        fread(myfs->data[db_empty[i]].reg.save,128,1,fop);
+      {
+        int temp;
+        temp=file_size%128;
+        if(file_size/128!=0&&temp==0)
+          temp=128;
+        fread(myfs->data[db_empty[size_c-2]].reg.save,temp,1,fop);
+      }
+    }
+	}
+	else
+		printf("error : can't save file (no space)\n");
+  free(db_empty);
+  fclose(fop);
+}
+void mycpto(char *order,file_st *myfs){
+  char my_file_name[5]="",cpf_name[1000]="";
+  int fin,rn,*dnum,size;
+  FILE *fop;
+  sscanf(order,"%*s %4s",my_file_name);
+  sscanf(order,"%*s %*s %s",cpf_name);
+  dnum=find_dnum(now,myfs);
+  rn=count_dnum(now,myfs);
+  for(int i=0;i<rn;i++){
+    fin=find_file(myfs->data[dnum[i]].dir,my_file_name);
+    if(fin!=-1) break;
+  }
+  if(fin==-1){
+    printf("error : no file\n");
+    return ;
+  }
+  free(dnum);
+  dnum=find_dnum(fin,myfs);
+  rn=count_dnum(fin,myfs);
+  size=myfs->inode[fin].size;
+  fop=fopen(cpf_name,"wb");
+  for(int i=0;i<rn;i++){
+    if(i==rn-1){
+      fwrite(myfs->data[dnum[i]].reg.save,size,1,fop);
+    }
+    else{
+      size=size-128;
+      fwrite(myfs->data[dnum[i]].reg.save,128,1,fop);
+    }
+  }
+  fclose(fop);
+}
+//파일을 복사
+
+void myls(char *order,file_st *myfs){
+	char opt[1000]="",route[1000]="",ct_s[20];
+	short dfn,wstation;
+  int dnum;
+  fls_st *srt;
+	sscanf(order,"%*s %s %s",opt,route);
+  if(opt[0]=='-'){
+    if(route[0]==0)
+      wstation=now;
+    else
+      wstation=find_rinode(route,myfs);
+  }
+  else if(opt[0]==0){
+    wstation=now;
+  }
+  else
+    wstation=find_rinode(opt,myfs);
+  if(myfs->inode[wstation].type=='-'){
+    printf("error : not file\n");
+    return ;
+  }
+  dfn=myfs->data[myfs->inode[wstation].dir_b].dir.fcount;
+  srt=(fls_st *)calloc(dfn,sizeof(fls_st));
+  if(dfn<=20){
+    for(int i=0;i<dfn;i++){
+       strncpy(srt[i].fname,myfs->data[myfs->inode[wstation].dir_b].dir.fset[i].fname,4);
+       srt[i].fname[4]=0;
+       srt[i].finode=myfs->data[myfs->inode[wstation].dir_b].dir.fset[i].finode;
+    }
+  }
+  else if(dfn>20){
+    for(int i=0;i<20;i++){
+      strncpy(srt[i].fname,myfs->data[myfs->inode[wstation].dir_b].dir.fset[i].fname,4);
+      srt[i].fname[4]=0;
+      srt[i].finode=myfs->data[myfs->inode[wstation].dir_b].dir.fset[i].finode;
+    }
+    for(int i=0;i<dfn/20-1;i++){
+      dnum=btoi(myfs->data[myfs->inode[wstation].in_b].reg.save,i+1);
+      for(int j=0;j<20;j++){
+        strncpy(srt[(i+1)*20+j].fname,myfs->data[myfs->inode[dnum].dir_b].dir.fset[j].fname,4);
+        srt[(i+1)*20+j].fname[4]=0;
+        srt[(i+1)*20+j].finode=myfs->data[myfs->inode[dnum].dir_b].dir.fset[j].finode;
+      }
+    }
+    dnum=btoi(myfs->data[myfs->inode[wstation].in_b].reg.save,dfn/20);
+    {
+      int temp;
+      temp=dfn%20;
+      if(dfn/20!=0&&temp==0)
+        temp=20;
+      for(int i=0;i<temp;i++){
+        strncpy(srt[(dfn/20)*20+i].fname,myfs->data[dnum].dir.fset[i].fname,4);
+        srt[(dfn/20)*20+i].fname[4]=0;
+        srt[(dfn/20)*20+i].finode=myfs->data[dnum].dir.fset[i].finode;
+      }
+    }
+  }
+  qsort(srt,dfn,sizeof(fls_st),mycmp);
+  if(opt[0]==0){ //option이 없는 경우
+    printf(".\n..\n");
+    for(int i=0;i<dfn;i++)
+      printf("%s\n",srt[i].fname);
+  }
+  else if(opt[0]=='-'&&opt[1]=='l'&&opt[2]==0){ //-l 옵션
+    int fin;
+    fin=myfs->data[myfs->inode[wstation].dir_b].dir.current;
+    ct_string(myfs->inode[fin].c_time,ct_s);
+    printf("d %6d %s .\n",0,ct_s);
+    fin=myfs->data[myfs->inode[wstation].dir_b].dir.parent;
+    ct_string(myfs->inode[fin].c_time,ct_s);
+    printf("d %6d %s ..\n",0,ct_s);
+    for(int i=0;i<dfn;i++){
+      fin=srt[i].finode;
