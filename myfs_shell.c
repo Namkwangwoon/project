@@ -365,7 +365,7 @@ tree_node * create_node(char *fname,int finode){
 //트리를 할당 받는다
 
 int order_ch(char *order,FILE *fop,file_st *myfs,tree_node *root,tree_node *tnow,tree_node **n2ow){
-	if(strncmp(order,"byebye",6)==0) //byebye 입력시 종료 파일의 저장을위해 main 함수로 리턴
+	if(strncmp(order,"byebye",6)==0 || strncmp(order,"exit",4)==0) //byebye 또는 exit 입력시 종료 파일의 저장을위해 main 함수로 리턴
 		return -1;
 	else if(strncmp(order,"my",2)!=0) //my가 명령어에 안들어가면 cygwin 명령 실행
 		system(order);
@@ -404,8 +404,8 @@ int order_ch(char *order,FILE *fop,file_st *myfs,tree_node *root,tree_node *tnow
     myrm(order,myfs);
   else if(strncmp(order,"mymv",4)==0) //mymv 실행
     mymv(order,myfs);
-    else if(strncmp(order,"mytree",6)==0) //mytree 실행
-      print_tree(order,root,tnow,myfs);
+  else if(strncmp(order,"mytree",6)==0) //mytree 실행
+    print_tree(order,root,tnow,myfs);
   else
     printf("error : no command\n");   //그 외의 명령어는 error 처리
 	return 0;
